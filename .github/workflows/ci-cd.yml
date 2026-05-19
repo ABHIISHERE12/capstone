@@ -38,7 +38,6 @@ jobs:
         env:
           NODE_ENV: test
           JWT_SECRET: test_jwt_secret_for_ci
-          # MONGO_URI intentionally left empty — tests mock mongoose
         run: npm test
 
   # ─────────────────────────────────────────
@@ -82,31 +81,45 @@ jobs:
 
   # ─────────────────────────────────────────
   # JOB 3: Build & Push Docker Images
-  # Skipped if DOCKERHUB_USERNAME secret is not set
+  # Only runs on push to master/main
+  # Steps check secrets via env vars (secrets context not allowed in job if)
   # ─────────────────────────────────────────
   docker-build:
     name: Docker — Build & Push
     runs-on: ubuntu-latest
     needs: [backend-ci, frontend-ci]
-    if: |
+    if: >
       (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') &&
-      github.event_name == 'push' &&
-      secrets.DOCKERHUB_USERNAME != ''
+      github.event_name == 'push'
+    continue-on-error: true
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
     steps:
+      - name: Check Docker Hub secrets are set
+        if: env.DOCKERHUB_USERNAME == '' || env.DOCKERHUB_TOKEN == ''
+        run: |
+          echo "::warning::DOCKERHUB_USERNAME or DOCKERHUB_TOKEN secret is not set — skipping Docker push"
+          exit 0
+
       - name: Checkout code
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build & Push backend image
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -119,6 +132,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build & Push frontend image
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -134,19 +148,27 @@ jobs:
 
   # ─────────────────────────────────────────
   # JOB 4: Deploy Backend to Render
-  # Skipped if RENDER_DEPLOY_HOOK_BACKEND secret is not set
   # ─────────────────────────────────────────
   deploy-backend:
     name: Deploy — Backend (Render)
     runs-on: ubuntu-latest
     needs: [backend-ci]
-    if: |
+    if: >
       (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') &&
-      github.event_name == 'push' &&
-      secrets.RENDER_DEPLOY_HOOK_BACKEND != ''
+      github.event_name == 'push'
+    continue-on-error: true
+    env:
+      RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
 
     steps:
+      - name: Check Render secret is set
+        if: env.RENDER_HOOK == ''
+        run: |
+          echo "::warning::RENDER_DEPLOY_HOOK_BACKEND secret is not set — skipping Render deploy"
+          exit 0
+
       - name: Trigger Render deploy hook
+        if: env.RENDER_HOOK != ''
         run: |
           curl -s -X POST "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}" \
             -H "Content-Type: application/json" \
@@ -154,31 +176,40 @@ jobs:
 
   # ─────────────────────────────────────────
   # JOB 5: Deploy Frontend to Vercel
-  # Skipped if VERCEL_TOKEN secret is not set
   # ─────────────────────────────────────────
   deploy-frontend:
     name: Deploy — Frontend (Vercel)
     runs-on: ubuntu-latest
     needs: [frontend-ci]
-    if: |
+    if: >
       (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') &&
-      github.event_name == 'push' &&
-      secrets.VERCEL_TOKEN != ''
+      github.event_name == 'push'
+    continue-on-error: true
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
     steps:
+      - name: Check Vercel secrets are set
+        if: env.VERCEL_TOKEN == ''
+        run: |
+          echo "::warning::VERCEL_TOKEN secret is not set — skipping Vercel deploy"
+          exit 0
+
       - name: Checkout code
+        if: env.VERCEL_TOKEN != ''
         uses: actions/checkout@v4
 
       - name: Install Vercel CLI
+        if: env.VERCEL_TOKEN != ''
         run: npm install -g vercel@latest
 
       - name: Deploy to Vercel (Production)
+        if: env.VERCEL_TOKEN != ''
         working-directory: frontend
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
-          vercel build --prod --token=$VERCEL_TOKEN
-          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
