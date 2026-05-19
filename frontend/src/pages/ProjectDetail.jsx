@@ -1,58 +1,74 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { getProject, updateProject, deleteProject } from '../api/projectApi';
-import { getTasks, createTask, updateTask, deleteTask } from '../api/taskApi';
-import Navbar from '../components/Navbar';
-import TaskCard from '../components/TaskCard';
-import Spinner from '../components/Spinner';
-import { useAuth } from '../context/AuthContext';
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { getProject, updateProject, deleteProject } from "../api/projectApi";
+import { getTasks, createTask, updateTask, deleteTask } from "../api/taskApi";
+import Navbar from "../components/Navbar";
+import TaskCard from "../components/TaskCard";
+import Spinner from "../components/Spinner";
+import { useAuth } from "../context/AuthContext";
 
-const TASK_INIT = { title: '', description: '', priority: 'medium', dueDate: '' };
-const COLUMNS   = ['todo', 'in-progress', 'review', 'done'];
-const COL_LABEL = { todo: 'To Do', 'in-progress': 'In Progress', review: 'Review', done: 'Done' };
+const TASK_INIT = {
+  title: "",
+  description: "",
+  priority: "medium",
+  dueDate: "",
+};
+const COLUMNS = ["todo", "in-progress", "review", "done"];
+const COL_LABEL = {
+  todo: "To Do",
+  "in-progress": "In Progress",
+  review: "Review",
+  done: "Done",
+};
 
 export default function ProjectDetail() {
-  const { id }       = useParams();
-  const { user }     = useAuth();
-  const navigate     = useNavigate();
-  const [project, setProject]     = useState(null);
-  const [tasks, setTasks]         = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const { id } = useParams();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [project, setProject] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [taskForm, setTaskForm]   = useState(TASK_INIT);
+  const [taskForm, setTaskForm] = useState(TASK_INIT);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]         = useState('');
-  const [editMode, setEditMode]   = useState(false);
-  const [editForm, setEditForm]   = useState({ name: '', description: '', status: '' });
+  const [error, setError] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    description: "",
+    status: "",
+  });
 
-  const load = async () => {
-    try {
-      const [projRes, taskRes] = await Promise.all([
-        getProject(id),
-        getTasks(id),
-      ]);
-      setProject(projRes.data);
-      setTasks(taskRes.data);
-      setEditForm({
-        name: projRes.data.name,
-        description: projRes.data.description,
-        status: projRes.data.status,
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    // Define fetcher inside effect to satisfy react-hooks/set-state-in-effect
+    const load = async () => {
+      try {
+        const [projRes, taskRes] = await Promise.all([
+          getProject(id),
+          getTasks(id),
+        ]);
+        setProject(projRes.data);
+        setTasks(taskRes.data);
+        setEditForm({
+          name: projRes.data.name,
+          description: projRes.data.description,
+          status: projRes.data.status,
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id]);
 
   const handleTaskChange = (e) =>
     setTaskForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setSubmitting(true);
     try {
       const res = await createTask({ ...taskForm, project: id });
@@ -60,7 +76,7 @@ export default function ProjectDetail() {
       setTaskForm(TASK_INIT);
       setShowTaskForm(false);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create task');
+      setError(err.response?.data?.message || "Failed to create task");
     } finally {
       setSubmitting(false);
     }
@@ -76,12 +92,12 @@ export default function ProjectDetail() {
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Delete this task?')) return;
+    if (!window.confirm("Delete this task?")) return;
     try {
       await deleteTask(taskId);
       setTasks((prev) => prev.filter((t) => t._id !== taskId));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete task');
+      alert(err.response?.data?.message || "Failed to delete task");
     }
   };
 
@@ -92,24 +108,40 @@ export default function ProjectDetail() {
       setProject(res.data);
       setEditMode(false);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update project');
+      alert(err.response?.data?.message || "Failed to update project");
     }
   };
 
   const handleDeleteProject = async () => {
-    if (!window.confirm('Delete this entire project and all its tasks?')) return;
+    if (!window.confirm("Delete this entire project and all its tasks?"))
+      return;
     try {
       await deleteProject(id);
-      navigate('/projects');
+      navigate("/projects");
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete project');
+      alert(err.response?.data?.message || "Failed to delete project");
     }
   };
 
-  if (loading) return <><Navbar /><Spinner /></>;
-  if (!project) return <><Navbar /><div className="page-content"><p>Project not found.</p></div></>;
+  if (loading)
+    return (
+      <>
+        <Navbar />
+        <Spinner />
+      </>
+    );
+  if (!project)
+    return (
+      <>
+        <Navbar />
+        <div className="page-content">
+          <p>Project not found.</p>
+        </div>
+      </>
+    );
 
-  const isOwner = project.owner?._id === user?._id || project.owner === user?._id;
+  const isOwner =
+    project.owner?._id === user?._id || project.owner === user?._id;
 
   return (
     <>
@@ -125,7 +157,9 @@ export default function ProjectDetail() {
                 <input
                   type="text"
                   value={editForm.name}
-                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, name: e.target.value }))
+                  }
                   required
                 />
               </label>
@@ -133,7 +167,9 @@ export default function ProjectDetail() {
                 Description
                 <textarea
                   value={editForm.description}
-                  onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, description: e.target.value }))
+                  }
                   rows={3}
                 />
               </label>
@@ -141,7 +177,9 @@ export default function ProjectDetail() {
                 Status
                 <select
                   value={editForm.status}
-                  onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, status: e.target.value }))
+                  }
                 >
                   <option value="active">Active</option>
                   <option value="completed">Completed</option>
@@ -149,8 +187,16 @@ export default function ProjectDetail() {
                 </select>
               </label>
               <div className="form-actions">
-                <button type="submit" className="btn-primary">Save Changes</button>
-                <button type="button" className="btn-secondary" onClick={() => setEditMode(false)}>Cancel</button>
+                <button type="submit" className="btn-primary">
+                  Save Changes
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setEditMode(false)}
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
@@ -158,26 +204,42 @@ export default function ProjectDetail() {
           <div className="page-header">
             <div>
               <h1>{project.name}</h1>
-              <p className="muted">{project.description || 'No description'}</p>
-              <span className={`badge badge-${project.status}`}>{project.status}</span>
-              <span className="muted" style={{ marginLeft: '1rem' }}>
-                Owner: {project.owner?.name} &bull; {project.members?.length} member(s)
+              <p className="muted">{project.description || "No description"}</p>
+              <span className={`badge badge-${project.status}`}>
+                {project.status}
+              </span>
+              <span className="muted" style={{ marginLeft: "1rem" }}>
+                Owner: {project.owner?.name} &bull; {project.members?.length}{" "}
+                member(s)
               </span>
             </div>
             {isOwner && (
               <div className="page-header-actions">
-                <button className="btn-secondary btn-sm" onClick={() => setEditMode(true)}>Edit</button>
-                <button className="btn-danger btn-sm" onClick={handleDeleteProject}>Delete Project</button>
+                <button
+                  className="btn-secondary btn-sm"
+                  onClick={() => setEditMode(true)}
+                >
+                  Edit
+                </button>
+                <button
+                  className="btn-danger btn-sm"
+                  onClick={handleDeleteProject}
+                >
+                  Delete Project
+                </button>
               </div>
             )}
           </div>
         )}
 
         {/* Task Board */}
-        <div className="section-header" style={{ marginTop: '2rem' }}>
+        <div className="section-header" style={{ marginTop: "2rem" }}>
           <h2>Tasks ({tasks.length})</h2>
-          <button className="btn-primary btn-sm" onClick={() => setShowTaskForm((v) => !v)}>
-            {showTaskForm ? 'Cancel' : '+ Add Task'}
+          <button
+            className="btn-primary btn-sm"
+            onClick={() => setShowTaskForm((v) => !v)}
+          >
+            {showTaskForm ? "Cancel" : "+ Add Task"}
           </button>
         </div>
 
@@ -211,7 +273,11 @@ export default function ProjectDetail() {
               <div className="form-row">
                 <label>
                   Priority
-                  <select name="priority" value={taskForm.priority} onChange={handleTaskChange}>
+                  <select
+                    name="priority"
+                    value={taskForm.priority}
+                    onChange={handleTaskChange}
+                  >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
@@ -228,8 +294,12 @@ export default function ProjectDetail() {
                 </label>
               </div>
               <div className="form-actions">
-                <button type="submit" disabled={submitting} className="btn-primary">
-                  {submitting ? 'Adding…' : 'Add Task'}
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="btn-primary"
+                >
+                  {submitting ? "Adding…" : "Add Task"}
                 </button>
               </div>
             </form>
