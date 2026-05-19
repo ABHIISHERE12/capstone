@@ -1,0 +1,40 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: teamflow-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env # loads MONGO_URI, JWT_SECRET, PORT, NODE_ENV
+    environment:
+      - NODE_ENV=production # override to production inside Docker
+      - CLIENT_ORIGIN=http://localhost:3000
+    restart: unless-stopped
+    networks:
+      - teamflow-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:5000/api
+    container_name: teamflow-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - teamflow-net
+
+networks:
+  teamflow-net:
+    driver: bridge
