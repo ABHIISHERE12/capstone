@@ -27,7 +27,7 @@ spec:
             - name: PORT
               value: "5000"
             - name: CLIENT_ORIGIN
-              value: "http://frontend-service:80"
+              value: "http://teamflow.local"
             - name: MONGO_URI
               valueFrom:
                 secretKeyRef:
